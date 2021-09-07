@@ -42,7 +42,7 @@ class Patch:
             palette = rom[to_full(bank1, 28672):to_full(bank1, 28672) + 2048]
             bgp = rom[to_full(bank1, 30976):to_full(bank1, 30976) + 64]
             objp = rom[to_full(bank1, 30140):to_full(bank1, 30140) + 64]
-        tail = rom[to_full(bank2, 16569):to_full(bank2, 16569) + 54]
+        tail = rom[to_full(bank2, 0x40bc):to_full(bank2, 0x40bc) + 54]
         name = rom[to_full(home, 28672) + index * 18:to_full(home, 28672) + index * 18 + 18]
 
         return State(self.game.cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail)
@@ -179,7 +179,7 @@ def make_state(state_name, gsr_state, cgb):
         gsrState = f.read()
     data = extract_state_data(gsrState, ['vram', 'sram', 'wram', 'hram', 'pc', 'sp', 'a', 'b', 'c', 'd', 'e', 'f', 'h', 'l', 'vcycles', 'cc', 'ldivup', 'bgp', 'objp'])
 
-    if(read_int_be(data['pc']) != 64):
+    if read_int_be(data['pc']) != 64:
         print('!')
 
     sp = read_int_be(data['sp'])
@@ -191,7 +191,7 @@ def make_state(state_name, gsr_state, cgb):
     div = cc & 0xFFFF
 
     #backwards compat
-    if(data['hram'][260]):
+    if data['hram'][260]:
         div = data['hram'][260] * 256 + cc - ldivup
 
     data['hram'][320] = data['hram'][320] & 0x7F
