@@ -42,7 +42,8 @@ class Patch:
             palette = rom[to_full(bank1, 28672):to_full(bank1, 28672) + 2048]
             bgp = rom[to_full(bank1, 30976):to_full(bank1, 30976) + 64]
             objp = rom[to_full(bank1, 30140):to_full(bank1, 30140) + 64]
-        tail = rom[to_full(bank2, 0x40bc):to_full(bank2, 0x40bc) + 54]
+        # tail can be variable length, set to 200 for now
+        tail = rom[to_full(bank2, 0x40bc):to_full(bank2, 0x40bc) + 200]
         name = rom[to_full(home, 28672) + index * 18:to_full(home, 28672) + index * 18 + 18]
 
         return State(self.game.cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail)
