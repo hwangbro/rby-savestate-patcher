@@ -20,7 +20,7 @@ class PromptWindow(QWidget):
     def __init__(self, parent=None):
         super(PromptWindow, self).__init__(parent)
 
-        self.setWindowTitle('Pokemon RBY State Flasher')
+        self.setWindowTitle('Pokemon RBY State Flasher v1.2')
         self.layout = QVBoxLayout()
         self.label = QLabel(f'Please open a vanilla \nRed/Blue or Yellow ROM to start')
         self.label.setFont(label_font)
@@ -74,7 +74,7 @@ class FlashWindow(QWidget):
     def __init__(self, file_path, parent=None):
         self.existingSSRomPath = None
         super(FlashWindow, self).__init__(parent)
-        self.setWindowTitle('Pokemon RBY State Flasher')
+        self.setWindowTitle('Pokemon RBY State Flasher v1.2')
 
         self.rom = ROM(file_path)
         self.patch = Patch(self.rom)
