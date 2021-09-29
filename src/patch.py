@@ -1,7 +1,40 @@
 from ArrayUtils import *
 from game import *
 from ips_util import Patch as PatchIPS
-import binascii
+
+class State:
+    def __init__(self, cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail):
+        self.cgb = cgb
+        self.name = name
+        self.vram = vram
+        self.hram = hram
+        self.sram1 = sram1
+        self.sram2 = sram2
+        self.wram = wram
+        self.palette = palette
+        self.bgp = bgp
+        self.objp = objp
+        self.tail = tail
+
+    def set_name(self, name):
+        self.name = encode_name(name.strip())
+
+    def get_name(self):
+        return decode_name(self.name).strip()
+
+    def __eq__(self, other):
+        return (self.cgb == other.cgb
+            and self.name == other.name
+            and self.vram == other.vram
+            and self.hram == other.hram
+            and self.sram1 == other.sram1
+            and self.sram2 == other.sram2
+            and self.wram == other.wram
+            and self.palette == other.palette
+            and self.bgp == other.bgp
+            and self.objp == other.objp
+            and self.tail == other.tail)
+
 
 class Patch:
     def __init__(self, rom, states={}):
@@ -13,7 +46,7 @@ class Patch:
         # dictionary of states, key is index, value is state namedtuple
         self.states = states
 
-    def extract_all_states(self, rom_file_path):
+    def extract_all_states(self, rom_file_path: str) -> None:
         with open(rom_file_path, 'rb') as f:
             rom = f.read()
         num_states = (len(rom) - self.game.base * 16384) // 32768
@@ -24,7 +57,7 @@ class Patch:
                 self.states[index] = state
                 index += 1
 
-    def extract_state(self, rom, index):
+    def extract_state(self, rom: bytearray, index: int) -> State:
         base = self.game.base
         home = self.game.home
         bank1 = base + index * 2
@@ -49,71 +82,51 @@ class Patch:
         return State(self.game.cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail)
 
     # states = dictionary, key = index, value = state obj
-    def inject_all_states(self):
+    def inject_all_states(self) -> None:
         self.rom = self.ips_patch.apply(self.base_rom.contents)
         self.rom = pad_array(self.rom, self.game.base + len(self.states) * 2)
 
         for i in range(len(self.states)):
-            self.inject_state(self.rom, self.states[i], i)
+            self.inject_state(self.states[i], i)
 
-        self.write_checksum(self.rom)
+        self.write_checksum()
 
-    def inject_state(self, rom, state, index):
+    def inject_state(self, state: State, index: int) -> None:
         base = self.game.base
         home = self.game.home
         bank1 = base + index * 2
         bank2 = bank1 + 1
 
-        array_copy(rom, to_full(home, 16384), rom, to_full(bank1, 16384), 4096)
-        array_copy(rom, to_full(home, 16384), rom, to_full(bank2, 16384), 4096)
-        array_copy(state.vram, 0, rom, to_full(bank1, 20480))
-        array_copy(state.hram, 0, rom, to_full(bank1, 30720))
-        array_copy(state.sram1, 0, rom, to_full(bank1, 31336))
-        array_copy(state.sram2, 0, rom, to_full(bank2, 20596))
-        array_copy(state.wram, 0, rom, to_full(bank2, 24576))
+        array_copy(self.rom, to_full(home, 16384), self.rom, to_full(bank1, 16384), 4096)
+        array_copy(self.rom, to_full(home, 16384), self.rom, to_full(bank2, 16384), 4096)
+        array_copy(state.vram, 0, self.rom, to_full(bank1, 20480))
+        array_copy(state.hram, 0, self.rom, to_full(bank1, 30720))
+        array_copy(state.sram1, 0, self.rom, to_full(bank1, 31336))
+        array_copy(state.sram2, 0, self.rom, to_full(bank2, 20596))
+        array_copy(state.wram, 0, self.rom, to_full(bank2, 24576))
         if self.game.cgb:
-            array_copy(state.palette, 0, rom, to_full(bank1, 28672))
-            array_copy(state.bgp, 0, rom, to_full(bank1, 30976))
-            array_copy(state.objp, 0, rom, to_full(bank1, 31040))
+            array_copy(state.palette, 0, self.rom, to_full(bank1, 28672))
+            array_copy(state.bgp, 0, self.rom, to_full(bank1, 30976))
+            array_copy(state.objp, 0, self.rom, to_full(bank1, 31040))
 
-        array_copy(state.tail, 0, rom, to_full(bank2, 0x40bc))
-        array_copy(state.name, 0, rom, to_full(home, 28672) + index * 18)
+        array_copy(state.tail, 0, self.rom, to_full(bank2, 0x40bc))
+        array_copy(state.name, 0, self.rom, to_full(home, 28672) + index * 18)
 
-        rom[to_full(bank1, 0x408b)] = bank2 & 0xFF
+        self.rom[to_full(bank1, 0x408b)] = bank2 & 0xFF
 
-    def write_checksum(self, rom):
-        header = -1 * sum(rom[308:333]) - (333-308)
-        rom[333] = header & 0xFF
+    def write_checksum(self) -> None:
+        header = -1 * sum(self.rom[308:333]) - (333-308)
+        self.rom[333] = header & 0xFF
 
-        glob = sum([x & 0xFF for idx, x in enumerate(rom) if idx != 334 and idx != 335])
+        glob = sum([x & 0xFF for idx, x in enumerate(self.rom) if idx != 334 and idx != 335])
 
-        rom[334] = glob >> 8 & 0xFF
-        rom[335] = glob & 0xFF
-
-
-class State:
-    def __init__(self, cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail):
-        self.cgb = cgb
-        self.name = name
-        self.vram = vram
-        self.hram = hram
-        self.sram1 = sram1
-        self.sram2 = sram2
-        self.wram = wram
-        self.palette = palette
-        self.bgp = bgp
-        self.objp = objp
-        self.tail = tail
-
-    def set_name(self, name):
-        self.name = encode_name(name.strip())
-
-    def get_name(self):
-        return decode_name(self.name).strip()
+        self.rom[334] = glob >> 8 & 0xFF
+        self.rom[335] = glob & 0xFF
 
 
 # state is bytearray of savestate
-def get_state_offsets(state):
+# returns label string and size of each section
+def get_state_offsets(state: bytearray) -> dict[str, int]:
     save_state_labels = dict()
     offset = 3
     size = read_int_be(state[offset:offset+3])
@@ -132,9 +145,9 @@ def get_state_offsets(state):
 
     return save_state_labels
 
-
 # state is bytearray of savestate
-def extract_state_data(state, labels):
+# returns label string and the data associated with each section
+def extract_state_data(state: bytearray, labels: list[str]) -> dict[str, int]:
     state_offsets = get_state_offsets(state)
     hashes = dict()
 
@@ -145,8 +158,7 @@ def extract_state_data(state, labels):
 
     return hashes
 
-
-def delay_cycles(cycles):
+def delay_cycles(cycles: int) -> bytearray:
     opcodes = bytearray()
     if cycles >= 36:
         loops = (cycles - 8) // 28
@@ -159,7 +171,6 @@ def delay_cycles(cycles):
 
     return opcodes
 
-
 def pad_array(source, max):
     size = 1
     while(2 << size < max):
@@ -170,12 +181,10 @@ def pad_array(source, max):
     result[328] = size & 0xFF
     return result
 
-
-def to_full(a, b):
+def to_full(a: int, b: int) -> int:
     return a * 16384 + b - 16384
 
-
-def make_state(state_name, gsr_state, cgb):
+def make_state(state_name: str, gsr_state: bytearray, cgb: bool) -> State:
     with open(gsr_state, 'rb') as f:
         gsrState = f.read()
     data = extract_state_data(gsrState, ['vram', 'sram', 'wram', 'hram', 'pc', 'sp', 'a', 'b', 'c', 'd', 'e', 'f', 'h', 'l', 'vcycles', 'cc', 'ldivup', 'bgp', 'objp'])
@@ -247,16 +256,13 @@ def make_state(state_name, gsr_state, cgb):
 
     return State(cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail)
 
-
-def read_int_be(b):
+def read_int_be(b: bytearray) -> int:
     return int.from_bytes(b, 'big')
 
-
-def read_int_le(b):
+def read_int_le(b: bytearray) -> int:
     return int.from_bytes(b, 'little')
 
-
-def encode_name(name):
+def encode_name(name: str) -> bytearray:
     encoded_name = bytearray()
     for i in name:
         poke_char = 0
@@ -276,8 +282,7 @@ def encode_name(name):
 
     return encoded_name
 
-
-def decode_name(name):
+def decode_name(name: bytearray) -> str:
     decoded_name = ''
     for i in name:
         poke_char = i & 0xFF
