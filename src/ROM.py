@@ -1,5 +1,4 @@
-from ArrayUtils import *
-from game import *
+from game import Game
 
 class ROM:
     def __init__(self, path):

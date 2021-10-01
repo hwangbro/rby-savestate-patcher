@@ -1,43 +1,9 @@
 from ArrayUtils import *
-from game import *
 from ips_util import Patch as PatchIPS
-
-class State:
-    def __init__(self, cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail):
-        self.cgb = cgb
-        self.name = name
-        self.vram = vram
-        self.hram = hram
-        self.sram1 = sram1
-        self.sram2 = sram2
-        self.wram = wram
-        self.palette = palette
-        self.bgp = bgp
-        self.objp = objp
-        self.tail = tail
-
-    def set_name(self, name):
-        self.name = encode_name(name.strip())
-
-    def get_name(self):
-        return decode_name(self.name).strip()
-
-    def __eq__(self, other):
-        return (self.cgb == other.cgb
-            and self.name == other.name
-            and self.vram == other.vram
-            and self.hram == other.hram
-            and self.sram1 == other.sram1
-            and self.sram2 == other.sram2
-            and self.wram == other.wram
-            and self.palette == other.palette
-            and self.bgp == other.bgp
-            and self.objp == other.objp
-            and self.tail == other.tail)
-
+from state import State
 
 class Patch:
-    def __init__(self, rom, states={}):
+    def __init__(self, rom, states=dict()):
         self.base_rom = rom
         self.game = self.base_rom.game
         self.ips_patch = PatchIPS.load(self.game.patch)
@@ -158,32 +124,6 @@ def extract_state_data(state: bytearray, labels: list[str]) -> dict[str, int]:
 
     return hashes
 
-def delay_cycles(cycles: int) -> bytearray:
-    opcodes = bytearray()
-    if cycles >= 36:
-        loops = (cycles - 8) // 28
-        cycles -= 8 + loops  * 28
-        opcodes.extend([1, loops & 0xFF, loops >> 8, 11, 121, 176, 32, 251])
-
-    if cycles >= 4:
-        for i in range(cycles // 4):
-            opcodes.append(0)
-
-    return opcodes
-
-def pad_array(source, max):
-    size = 1
-    while(2 << size < max):
-        size += 1
-
-    result = bytearray(32768 << size)
-    array_copy(source, 0, result, 0)
-    result[328] = size & 0xFF
-    return result
-
-def to_full(a: int, b: int) -> int:
-    return a * 16384 + b - 16384
-
 def make_state(state_name: str, gsr_state: bytearray, cgb: bool) -> State:
     with open(gsr_state, 'rb') as f:
         gsrState = f.read()
@@ -255,46 +195,3 @@ def make_state(state_name: str, gsr_state: bytearray, cgb: bool) -> State:
     name = encode_name(state_name)
 
     return State(cgb, name, vram, hram, sram1, sram2, wram, palette, bgp, objp, tail)
-
-def read_int_be(b: bytearray) -> int:
-    return int.from_bytes(b, 'big')
-
-def read_int_le(b: bytearray) -> int:
-    return int.from_bytes(b, 'little')
-
-def encode_name(name: str) -> bytearray:
-    encoded_name = bytearray()
-    for i in name:
-        poke_char = 0
-        if i == ' ':
-            poke_char = 127
-        elif i >= '0' and i <= '9':
-            poke_char = 246 + ord(i) - 48
-        elif i >= 'A' and i <= 'Z':
-            poke_char = 128 + ord(i) - 65
-        elif i >= 'a' and i <= 'z':
-            poke_char = 160 + ord(i) - 97
-
-        encoded_name.append(poke_char)
-
-    if len(encoded_name) > 16:
-        encoded_name.append(117)
-
-    return encoded_name
-
-def decode_name(name: bytearray) -> str:
-    decoded_name = ''
-    for i in name:
-        poke_char = i & 0xFF
-        c = ''
-        if poke_char == 127:
-            c = ' '
-        elif poke_char >= 246 and poke_char <= 255:
-            c = chr(48 + poke_char - 246)
-        elif poke_char >= 128 and poke_char <= 153:
-            c = chr(65 + poke_char - 128)
-        elif poke_char >= 160 and poke_char <= 185:
-            c = chr(97 + poke_char - 160)
-        decoded_name += c
-
-    return decoded_name

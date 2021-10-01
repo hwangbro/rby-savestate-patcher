@@ -1,10 +1,11 @@
-from PySide2.QtCore import Qt, QObject
+from PySide2.QtCore import Qt
 from PySide2.QtWidgets import *
-from PySide2.QtGui import QPalette, QColor, QFont
+from PySide2.QtGui import QFont
 import os, re
 
 from patch import *
 from ROM import ROM
+from game import BadGameRomException
 
 label_font = QFont('Helvetica', 14, QFont.Bold)
 label_font2 = QFont('Helvetica', 12, QFont.Bold)
