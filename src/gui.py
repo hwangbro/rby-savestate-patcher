@@ -11,6 +11,7 @@ label_font = QFont('Helvetica', 14, QFont.Bold)
 label_font2 = QFont('Helvetica', 12, QFont.Bold)
 
 def Run():
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     app = QApplication([])
     main = PromptWindow()
     main.show()
