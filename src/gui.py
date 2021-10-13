@@ -1,7 +1,7 @@
 from PySide2.QtCore import Qt
 from PySide2.QtWidgets import *
 from PySide2.QtGui import QFont
-import os, re
+import os
 
 from patch import *
 from ROM import ROM
@@ -132,11 +132,8 @@ class FlashWindow(QWidget):
 
         filePath, _ = QFileDialog.getOpenFileName(self, 'Load SaveState', '', 'Gambatte Quick Save Files (*.gqs)')
         if filePath:
-            State = make_state('null', filePath, self.rom.game.cgb)
             name = os.path.basename(filePath)[:-4]
-            pattern = re.compile('^[a-zA-Z0-9 ]*$')
-            if re.match(pattern, name):
-                State.set_name(name)
+            State = make_state(name, filePath, self.rom.game.cgb)
 
             item = QListWidgetItem(State.get_name())
             item.setData(0x100, State)
