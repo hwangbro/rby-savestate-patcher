@@ -22,7 +22,7 @@ class PromptWindow(QWidget):
     def __init__(self, parent=None):
         super(PromptWindow, self).__init__(parent)
 
-        self.setWindowTitle('Pokemon RBY State Flasher v1.2')
+        self.setWindowTitle('Pokemon RBY State Flasher v1.4')
         self.layout = QVBoxLayout()
         self.label = QLabel(f'Please open a vanilla \nRed/Blue or Yellow ROM to start')
         self.label.setFont(label_font)
@@ -76,20 +76,20 @@ class FlashWindow(QWidget):
     def __init__(self, file_path, parent=None):
         self.existingSSRomPath = None
         super(FlashWindow, self).__init__(parent)
-        self.setWindowTitle('Pokemon RBY State Flasher v1.2')
+        self.setWindowTitle('Pokemon RBY State Flasher v1.4')
 
         self.rom = ROM(file_path)
         self.patch = Patch(self.rom)
 
         self.layout = QGridLayout()
-        self.label = QLabel(f'Current Rom: {self.rom.game.type}')
+        self.label = QLabel(f'Current ROM: {self.rom.game.type}')
         self.label.setFont(label_font2)
         self.layout.addWidget(self.label, 0, 1, 1, -1)
         self.layout.setAlignment(self.label, Qt.AlignHCenter)
         self.setLayout(self.layout)
         self.setFixedSize(450,300)
 
-        self.add_item_btn = QPushButton('Add State')
+        self.add_item_btn = QPushButton('Add States')
         self.add_item_btn.clicked.connect(self.add_state)
         self.layout.addWidget(self.add_item_btn, 1, 1, 1, 2)
 
@@ -125,25 +125,26 @@ class FlashWindow(QWidget):
 
 
     def add_state(self):
-        if self.state_list.count() > self.rom.game.max_states:
-            self.error_message = MessageWindow('Maximum number of states reached.')
-            self.error_message.show()
-            return
+        filePaths, _ = QFileDialog.getOpenFileNames(self, 'Load SaveStates', '', 'Gambatte Quick Save Files (*.gqs)')
+        for filePath in filePaths:
+            if self.state_list.count() >= self.rom.game.max_states:
+                self.error_message = MessageWindow('Maximum number of states reached.')
+                self.error_message.show()
+                return
 
-        filePath, _ = QFileDialog.getOpenFileName(self, 'Load SaveState', '', 'Gambatte Quick Save Files (*.gqs)')
-        if filePath:
             name = os.path.basename(filePath)[:-4]
             State = make_state(name, filePath, self.rom.game.cgb)
 
             item = QListWidgetItem(State.get_name())
             item.setData(0x100, State)
-            row = self.state_list.currentRow()
+            row = self.state_list.currentRow() if self.state_list.selectedItems() else self.state_list.count()
             self.state_list.insertItem(row, item)
 
     def rename_btn_clicked(self):
-        item = self.state_list.currentItem()
-        self.RenameWindow = RenameWindow(item)
-        self.RenameWindow.show()
+        if self.state_list.selectedItems():
+            item = self.state_list.currentItem()
+            self.RenameWindow = RenameWindow(item)
+            self.RenameWindow.show()
 
     def save_btn_clicked(self):
         states = {}
@@ -180,27 +181,30 @@ class FlashWindow(QWidget):
             self.update_list()
 
     def delete_list_item(self):
-        item = self.state_list.currentItem()
-        self.state_list.takeItem(self.state_list.row(item))
+        if self.state_list.selectedItems():
+            item = self.state_list.currentItem()
+            self.state_list.takeItem(self.state_list.row(item))
 
 
 class RenameWindow(QWidget):
     def __init__(self, item, parent=None):
-        super(RenameWindow, self).__init__(parent)
+        super(RenameWindow, self).__init__(parent, Qt.WindowCloseButtonHint)
+        self.setWindowTitle('Rename State')
 
         self.layout = QGridLayout()
         self.item = item
 
-        self.state_cur_name_label = QLabel(f'Current State Name: {item.data(0x100).get_name()}')
-        self.state_name_box = QLineEdit()
+        self.label = QLabel('Enter new name:')
+        self.state_name_box = QLineEdit(item.data(0x100).get_name())
         self.state_name_box.setMaxLength(20)
+        self.state_name_box.selectAll()
 
         self.cancel_btn = QPushButton('Cancel')
         self.cancel_btn.clicked.connect(self.cancel_btn_clicked)
         self.ok_btn = QPushButton('OK')
         self.ok_btn.clicked.connect(self.ok_btn_clicked)
 
-        self.layout.addWidget(self.state_cur_name_label, 0, 0, 1, -1)
+        self.layout.addWidget(self.label, 0, 0, 1, -1)
         self.layout.addWidget(self.state_name_box, 1, 0, 1, -1)
         self.layout.addWidget(self.cancel_btn, 2, 0, 1, 1)
         self.layout.addWidget(self.ok_btn, 2, 1, 1, 1)
