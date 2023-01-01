@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from ArrayUtils import encode_name, decode_name
 
+
 @dataclass
 class State:
     cgb: bool
